@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late IO.Socket socket;
   bool isTripStarted = false;
 
-  final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk"; // Reemplaza con tu API Key
+  final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk";
 
   @override
   void initState() {
@@ -197,7 +197,6 @@ class _HomeScreenState extends State<HomeScreen> {
 void _acceptRideRequest(dynamic data) {
   if (_currentLatLng == null) return;
 
-  // Obtén el nombre y número de teléfono del conductor desde el AuthModel
   final authModel = Provider.of<AuthModel>(context, listen: false);
   final driverName = authModel.currentUser?.nombre ?? "Nombre desconocido";
   final driverPhone = authModel.currentUser?.telefono ?? "Número desconocido";
@@ -206,27 +205,14 @@ void _acceptRideRequest(dynamic data) {
     _startLatLng = LatLng(data['start']['latitude'], data['start']['longitude']);
     _destinationLatLng =
         LatLng(data['destination']['latitude'], data['destination']['longitude']);
-    _startMarker = Marker(
-      markerId: const MarkerId('start'),
-      position: _startLatLng!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-    );
-    _destinationMarker = Marker(
-      markerId: const MarkerId('destination'),
-      position: _destinationLatLng!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-    );
   });
 
   _drawRouteToStart();
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Has aceptado el viaje.')),
-  );
-
   // Emitir al servidor que el viaje ha sido aceptado
   socket.emit('acceptRide', {
-    'rideId': data['rideId'],
+    'rideId': data['rideId'], // Asegúrate de enviar el rideId recibido
+    'passengerId': data['passengerId'], // Pasajero para notificar
     'driverLocation': {
       'latitude': _currentLatLng?.latitude,
       'longitude': _currentLatLng?.longitude,
@@ -237,6 +223,8 @@ void _acceptRideRequest(dynamic data) {
     },
   });
 }
+
+
 
 
   Future<void> _drawRouteToStart() async {
@@ -413,3 +401,4 @@ void _acceptRideRequest(dynamic data) {
     );
   }
 }
+
