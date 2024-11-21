@@ -18,7 +18,7 @@ class AuthModel extends ChangeNotifier {
 
   // Método de login solo para verificar credenciales
   Future<void> login(String correo, String contrasena) async {
-    var url = Uri.parse('http://34.231.108.121:3028/api/v1/users/login');
+    var url = Uri.parse('http://35.175.159.211:3028/api/v1/chofer/login');
     var response = await http.post(
       url,
       headers: {
@@ -31,7 +31,7 @@ class AuthModel extends ChangeNotifier {
     );
 
     if (response.statusCode == 200) {
-      _isLoggedIn = true; // Marca al usuario como logueado solo para seguir al paso de verificación
+      _isLoggedIn = true;
       notifyListeners();
     } else {
       throw Exception('Error al iniciar sesión: ${response.statusCode} - ${response.body}');
@@ -40,7 +40,7 @@ class AuthModel extends ChangeNotifier {
 
   // Método para verificar el código y obtener los datos completos del usuario
   Future<void> verifyCode(String codigo, String correo) async {
-    var url = Uri.parse('http://34.231.108.121:3028/api/v1/users/validar-usuario');
+    var url = Uri.parse('http://35.175.159.211:3028/api/v1/chofer/validar-usuario');
     var response = await http.post(
       url,
       headers: {
@@ -55,17 +55,16 @@ class AuthModel extends ChangeNotifier {
     if (response.statusCode == 200) {
       var data = json.decode(response.body);
 
-      if (data != null && data['usuario'] != null && data['token'] != null) {
-        var usuario = data['usuario'];
+      if (data != null && data['chofer'] != null && data['token'] != null) {
+        var chofer = data['chofer'];
         _token = data['token'];
-        _userId = usuario['id'].toString();
-
-        // Almacena la información completa del usuario
+        _userId = chofer['id'].toString();
         _currentUser = UserModel(
-          id: usuario['id'].toString(),
-          nombre: usuario['nombre'],
-          correo: usuario['correo'],
-          telefono: usuario['telefono'],
+          id: chofer['id'].toString(),
+          nombre: chofer['nombre'],
+          correo: chofer['correo'],
+          telefono: chofer['telefono'],
+          matricula: chofer['matricula'],
         );
 
         _isVerified = true;

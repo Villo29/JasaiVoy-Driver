@@ -33,8 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final authModel = Provider.of<AuthModel>(context, listen: false);
       await authModel.login(_emailController.text, _passwordController.text);
-
-      // Si el login es exitoso (respuesta 200), navega a VerificationScreen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const VerificationScreen()),
@@ -53,9 +51,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Login'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
@@ -152,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            const RegisterDriverScreen(),
+                            const PassengerRegistrationScreen(),
                       ),
                     );
                   },

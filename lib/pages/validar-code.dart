@@ -2,9 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart';
+import 'package:location/location.dart';
 
 class VerificationScreen extends StatelessWidget {
   const VerificationScreen({super.key});
+
+  Future<bool> _checkLocationPermission(BuildContext context) async {
+    Location location = Location();
+    PermissionStatus permissionGranted = await location.hasPermission();
+
+
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+    }
+    if (permissionGranted != PermissionStatus.granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Permiso de ubicación denegado')),
+      );
+      return false;
+    }
+
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,16 +66,21 @@ class VerificationScreen extends StatelessWidget {
                   final email = emailController.text;
                   final codigoVerificacion = codeController.text;
 
-                  // Llama a verifyCode con el correo y el código
+                  // Verificar el código
                   await authModel.verifyCode(codigoVerificacion, email);
                   if (authModel.isVerified) {
-                    // Navegar a la pantalla principal después de la verificación
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => HomeScreen(token: authModel.token), // Pasa el token a HomeScreen
-                      ),
-                    );
+                    // Comprobar permisos de ubicación antes de navegar
+                    bool hasPermission = await _checkLocationPermission(context);
+                    if (hasPermission) {
+                      // Navegar a la pantalla principal después de la verificación
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              HomeScreen(token: authModel.token), // Pasa el token a HomeScreen
+                        ),
+                      );
+                    }
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(

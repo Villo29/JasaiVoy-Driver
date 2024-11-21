@@ -5,7 +5,7 @@ import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 import 'package:jasaivoy_driver/pages/conductorapartado.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'package:jasaivoy_driver/models/user_model.dart';
+import 'package:jasaivoy_driver/models/user_model.dart' as userModel; // Prefijo para UserModel del usuario
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       create: (context) => AuthModel(),
       child: const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: HomeScreen(token: ''), // Pasa un token aquí para pruebas
+        home: HomeScreen(token: ''),
       ),
     );
   }
@@ -52,29 +52,64 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isRequestingRide = false;
   late IO.Socket socket;
-  UserModel? user;
+  userModel.UserModel? user;
 
   final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk";
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
-    _initializeSocket();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkLocationPermission();
+      _initializeSocket();
+      _loadUserData();
+    });
   }
 
-  void _getCurrentLocation() async {
-    var currentLocation = await location.getLocation();
-    _startLatLng =
-        LatLng(currentLocation.latitude!, currentLocation.longitude!);
-    _setMarkerAndAddress(_startLatLng!, startController, isStartLocation: true);
+  Future<void> _checkLocationPermission() async {
+    PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+    }
+
+    if (permissionGranted == PermissionStatus.granted) {
+      await _getCurrentLocation();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permiso de ubicación denegado. No se puede continuar.')),
+      );
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationData currentLocation = await location.getLocation();
+      if (mounted) {
+        setState(() {
+          _startLatLng = LatLng(currentLocation.latitude!, currentLocation.longitude!);
+          _setMarkerAndAddress(_startLatLng!, startController, isStartLocation: true);
+        });
+      }
+    } catch (e) {
+      print('Error al obtener la ubicación actual: $e');
+    }
   }
 
   void _loadUserData() {
-    // Obtener la información del usuario desde AuthModel
-    user = Provider.of<AuthModel>(context, listen: false).currentUser;
+    final authUser = Provider.of<AuthModel>(context, listen: false).currentUser;
+    if (authUser != null) {
+      setState(() {
+        user = userModel.UserModel(
+          id: authUser.id,
+          nombre: authUser.nombre,
+          correo: authUser.correo,
+          telefono: authUser.telefono,
+          matricula: authUser.matricula,
+        );
+      });
+    }
   }
+
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
   }
@@ -106,16 +141,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _setMarkerAndAddress(
-      LatLng position, TextEditingController controller,
-      {required bool isStartLocation}) async {
+  Future<void> _setMarkerAndAddress(LatLng position, TextEditingController controller, {required bool isStartLocation}) async {
     setState(() {
       if (isStartLocation) {
         _startMarker = Marker(
           markerId: const MarkerId('start'),
           position: position,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         );
         _startLatLng = position;
       } else {
@@ -156,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return "Error al obtener dirección";
     }
   }
+
   Future<void> _getRoutePolyline() async {
     if (_startLatLng == null || _destinationLatLng == null) return;
 
@@ -214,72 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return points;
   }
 
-  Future<void> _requestRide() async {
-    if (_startLatLng == null || _destinationLatLng == null || user == null) return;
-
-    setState(() {
-      _isRequestingRide = true;
-    });
-
-    try {
-      // Emitir solicitud de viaje al servidor WebSocket
-      socket.emit('requestRide', {
-        'start': {
-          'latitude': _startLatLng!.latitude,
-          'longitude': _startLatLng!.longitude,
-        },
-        'destination': {
-          'latitude': _destinationLatLng!.latitude,
-          'longitude': _destinationLatLng!.longitude,
-        },
-        'passengerName': user!.nombre,
-        'phoneNumber': user!.telefono,
-        'passengerId': socket.id,
-      });
-
-      // Enviar datos del viaje al webhook
-      await _sendDataToWebhook();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Solicitud de viaje enviada. Esperando conductor...')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      setState(() {
-        _isRequestingRide = false;
-      });
-    }
-  }
-
-  Future<void> _sendDataToWebhook() async {
-    final url = Uri.parse('http://52.205.241.234:4000/webhook'); // Cambia la URL por la de tu webhook
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'start': {
-          'latitude': _startLatLng!.latitude,
-          'longitude': _startLatLng!.longitude,
-        },
-        'destination': {
-          'latitude': _destinationLatLng!.latitude,
-          'longitude': _destinationLatLng!.longitude,
-        },
-        'passengerName': user!.nombre,
-        'phoneNumber': user!.telefono,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      print('Datos enviados al webhook correctamente');
-    } else {
-      print('Error al enviar datos al webhook: ${response.statusCode}');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -298,8 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const ProfileScreenDriver()),
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
                 );
               },
             ),
@@ -322,8 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               ),
             ),
             const SizedBox(height: 12),
@@ -338,8 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               ),
             ),
             const SizedBox(height: 16),
@@ -369,12 +333,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           ListTile(
                             leading: const Icon(Icons.location_on),
-                            title:
-                                const Text('Establecer como ubicación inicial'),
+                            title: const Text('Establecer como ubicación inicial'),
                             onTap: () {
                               Navigator.pop(context);
-                              _setMarkerAndAddress(latLng, startController,
-                                  isStartLocation: true);
+                              _setMarkerAndAddress(latLng, startController, isStartLocation: true);
                             },
                           ),
                           ListTile(
@@ -382,9 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: const Text('Establecer como destino'),
                             onTap: () {
                               Navigator.pop(context);
-                              _setMarkerAndAddress(
-                                  latLng, destinationController,
-                                  isStartLocation: false);
+                              _setMarkerAndAddress(latLng, destinationController, isStartLocation: false);
                             },
                           ),
                         ],
@@ -395,18 +355,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (_startLatLng != null && _destinationLatLng != null)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isRequestingRide ? null : _requestRide,
-                  child: _isRequestingRide
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
-                      : const Text('Solicitar Viaje'),
-                ),
-              ),
           ],
         ),
       ),
@@ -444,9 +392,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (index == 4) {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfileScreenDriver(),
-                ),
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
             }
           });
