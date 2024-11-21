@@ -1,13 +1,13 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
-import 'package:http/http.dart' as http;
-import 'package:jasaivoy_driver/pages/conductorapartado.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
+import 'package:location/location.dart' as location_package;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'package:jasaivoy_driver/models/user_model.dart' as userModel; // Prefijo para UserModel del usuario
-import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:provider/provider.dart';
+import 'package:jasaivoy_driver/models/auth_model.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -38,56 +38,90 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late GoogleMapController mapController;
-  Location location = Location();
-  Marker? _startMarker;
-  Marker? _destinationMarker;
+  late GoogleMapController _mapController;
+  location_package.Location location = location_package.Location();
+  LatLng? _currentLatLng;
   LatLng? _startLatLng;
   LatLng? _destinationLatLng;
+  Marker? _startMarker;
+  Marker? _destinationMarker;
   Polyline? _routePolyline;
+  Polyline? _routeToDestination;
+  StreamSubscription<geolocator.Position>? _positionStream;
 
-  TextEditingController startController = TextEditingController();
-  TextEditingController destinationController = TextEditingController();
-
-  int _selectedIndex = 0;
-  bool _isRequestingRide = false;
   late IO.Socket socket;
-  userModel.UserModel? user;
+  bool isTripStarted = false;
 
-  final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk";
+  final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk"; // Reemplaza con tu API Key
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeSocket();
       await _checkLocationPermission();
-      _initializeSocket();
-      _loadUserData();
+      await _getCurrentLocation();
+      _startLocationUpdates();
+    });
+  }
+
+  @override
+  void dispose() {
+    _positionStream?.cancel();
+    socket.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeSocket() async {
+    socket = IO.io('http://35.175.159.211:4000', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': true,
+    });
+
+    socket.onConnect((_) {
+      print('Conectado al servidor WebSocket');
+    });
+
+    socket.on('newRideRequest', (data) {
+      print('Nueva solicitud de viaje recibida: $data');
+      _showRideRequestDialog(data);
+    });
+
+    socket.onDisconnect((_) {
+      print('Desconectado del servidor WebSocket');
     });
   }
 
   Future<void> _checkLocationPermission() async {
-    PermissionStatus permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
+    location_package.PermissionStatus permission =
+        await location.hasPermission();
+    if (permission == location_package.PermissionStatus.denied) {
+      permission = await location.requestPermission();
     }
 
-    if (permissionGranted == PermissionStatus.granted) {
-      await _getCurrentLocation();
+    if (permission == location_package.PermissionStatus.granted) {
+      final currentLocation = await location.getLocation();
+      setState(() {
+        _currentLatLng =
+            LatLng(currentLocation.latitude!, currentLocation.longitude!);
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permiso de ubicación denegado. No se puede continuar.')),
+        const SnackBar(
+          content: Text('Se requiere acceso a la ubicación para continuar.'),
+        ),
       );
     }
   }
 
   Future<void> _getCurrentLocation() async {
     try {
-      LocationData currentLocation = await location.getLocation();
+      location_package.LocationData currentLocation =
+          await location.getLocation();
       if (mounted) {
         setState(() {
-          _startLatLng = LatLng(currentLocation.latitude!, currentLocation.longitude!);
-          _setMarkerAndAddress(_startLatLng!, startController, isStartLocation: true);
+          _currentLatLng =
+              LatLng(currentLocation.latitude!, currentLocation.longitude!);
         });
       }
     } catch (e) {
@@ -95,120 +129,171 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _loadUserData() {
-    final authUser = Provider.of<AuthModel>(context, listen: false).currentUser;
-    if (authUser != null) {
+  void _startLocationUpdates() {
+    _positionStream = geolocator.Geolocator.getPositionStream(
+      locationSettings: const geolocator.LocationSettings(
+        accuracy: geolocator.LocationAccuracy.high,
+      ),
+    ).listen((geolocator.Position position) {
       setState(() {
-        user = userModel.UserModel(
-          id: authUser.id,
-          nombre: authUser.nombre,
-          correo: authUser.correo,
-          telefono: authUser.telefono,
-          matricula: authUser.matricula,
-        );
+        _currentLatLng = LatLng(position.latitude, position.longitude);
       });
-    }
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-  }
-
-  void _initializeSocket() {
-    socket = IO.io('http://52.205.241.234:4000', <String, dynamic>{
-      'transports': ['websocket'],
-      'autoConnect': false,
     });
+  }
+  void _showRideRequestDialog(dynamic data) {
+    if (data == null) return;
 
-    // Conectar al servidor WebSocket
-    socket.connect();
-
-    // Escuchar eventos de conexión
-    socket.onConnect((_) {
-      print('Connected to WebSocket server');
-    });
-
-    // Escuchar solicitud de viaje aceptada
-    socket.on('rideAccepted', (data) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Viaje aceptado por un conductor: $data')),
+    setState(() {
+      _startLatLng =
+          LatLng(data['start']['latitude'], data['start']['longitude']);
+      _destinationLatLng =
+          LatLng(data['destination']['latitude'], data['destination']['longitude']);
+      _startMarker = Marker(
+        markerId: const MarkerId('start'),
+        position: _startLatLng!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      );
+      _destinationMarker = Marker(
+        markerId: const MarkerId('destination'),
+        position: _destinationLatLng!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       );
     });
 
-    // Escuchar cuando el socket se desconecta
-    socket.onDisconnect((_) {
-      print('Disconnected from WebSocket server');
-    });
+    _drawRouteToStart();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Nueva solicitud de viaje'),
+          content: Text(
+            'Solicitud desde (${data['start']['latitude']}, ${data['start']['longitude']}) '
+            'hasta (${data['destination']['latitude']}, ${data['destination']['longitude']}).',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Has rechazado el viaje.')),
+                );
+              },
+              child: const Text('Rechazar'),
+            ),
+            TextButton(
+              onPressed: () {
+                _acceptRideRequest(data);
+                Navigator.pop(context);
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  Future<void> _setMarkerAndAddress(LatLng position, TextEditingController controller, {required bool isStartLocation}) async {
-    setState(() {
-      if (isStartLocation) {
-        _startMarker = Marker(
-          markerId: const MarkerId('start'),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        );
-        _startLatLng = position;
-      } else {
-        _destinationMarker = Marker(
-          markerId: const MarkerId('destination'),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        );
-        _destinationLatLng = position;
-      }
-    });
+void _acceptRideRequest(dynamic data) {
+  if (_currentLatLng == null) return;
 
-    String address = await _getAddressFromLatLng(position);
-    setState(() {
-      controller.text = address;
-    });
+  // Obtén el nombre y número de teléfono del conductor desde el AuthModel
+  final authModel = Provider.of<AuthModel>(context, listen: false);
+  final driverName = authModel.currentUser?.nombre ?? "Nombre desconocido";
+  final driverPhone = authModel.currentUser?.telefono ?? "Número desconocido";
 
-    if (_startLatLng != null && _destinationLatLng != null) {
-      await _getRoutePolyline();
-    }
-  }
+  setState(() {
+    _startLatLng = LatLng(data['start']['latitude'], data['start']['longitude']);
+    _destinationLatLng =
+        LatLng(data['destination']['latitude'], data['destination']['longitude']);
+    _startMarker = Marker(
+      markerId: const MarkerId('start'),
+      position: _startLatLng!,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+    );
+    _destinationMarker = Marker(
+      markerId: const MarkerId('destination'),
+      position: _destinationLatLng!,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+    );
+  });
 
-  Future<String> _getAddressFromLatLng(LatLng position) async {
+  _drawRouteToStart();
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Has aceptado el viaje.')),
+  );
+
+  // Emitir al servidor que el viaje ha sido aceptado
+  socket.emit('acceptRide', {
+    'rideId': data['rideId'],
+    'driverLocation': {
+      'latitude': _currentLatLng?.latitude,
+      'longitude': _currentLatLng?.longitude,
+    },
+    'driverInfo': {
+      'name': driverName,
+      'phone': driverPhone,
+    },
+  });
+}
+
+
+  Future<void> _drawRouteToStart() async {
+    if (_currentLatLng == null || _startLatLng == null) return;
+
     final url = Uri.parse(
-      "https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$apiKey",
+      "https://maps.googleapis.com/maps/api/directions/json?"
+      "origin=${_currentLatLng!.latitude},${_currentLatLng!.longitude}&"
+      "destination=${_startLatLng!.latitude},${_startLatLng!.longitude}&"
+      "key=$apiKey",
     );
 
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      if (data['results'].isNotEmpty) {
-        return data['results'][0]['formatted_address'];
-      } else {
-        return "Dirección no disponible";
-      }
-    } else {
-      return "Error al obtener dirección";
-    }
-  }
 
-  Future<void> _getRoutePolyline() async {
-    if (_startLatLng == null || _destinationLatLng == null) return;
-
-    final url = Uri.parse(
-      "https://maps.googleapis.com/maps/api/directions/json?origin=${_startLatLng!.latitude},${_startLatLng!.longitude}&destination=${_destinationLatLng!.latitude},${_destinationLatLng!.longitude}&key=$apiKey",
-    );
-
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
       if (data['routes'].isNotEmpty) {
         final polylinePoints = data['routes'][0]['overview_polyline']['points'];
         final polylineCoordinates = _decodePolyline(polylinePoints);
 
         setState(() {
           _routePolyline = Polyline(
-            polylineId: const PolylineId("route"),
+            polylineId: const PolylineId('route_to_start'),
             points: polylineCoordinates,
             color: Colors.blue,
+            width: 5,
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _drawRouteToDestination() async {
+    if (_startLatLng == null || _destinationLatLng == null) return;
+
+    final url = Uri.parse(
+      "https://maps.googleapis.com/maps/api/directions/json?"
+      "origin=${_startLatLng!.latitude},${_startLatLng!.longitude}&"
+      "destination=${_destinationLatLng!.latitude},${_destinationLatLng!.longitude}&"
+      "key=$apiKey",
+    );
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data['routes'].isNotEmpty) {
+        final polylinePoints = data['routes'][0]['overview_polyline']['points'];
+        final polylineCoordinates = _decodePolyline(polylinePoints);
+
+        setState(() {
+          _routeToDestination = Polyline(
+            polylineId: const PolylineId('route_to_destination'),
+            points: polylineCoordinates,
+            color: Colors.red,
             width: 5,
           );
         });
@@ -246,159 +331,84 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return points;
   }
+  void _endTrip() {
+    setState(() {
+      _routeToDestination = null;
+      _routePolyline = null;
+      _startLatLng = null;
+      _destinationLatLng = null;
+      _startMarker = null;
+      _destinationMarker = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('El viaje ha finalizado.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: IconButton(
-              icon: const CircleAvatar(
-                radius: 20,
-                backgroundImage: AssetImage('assets/perfilFoto.png'),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                );
-              },
-            ),
-          ),
-        ],
+        title: Text('Inicio - Token: ${widget.token}'),
+        backgroundColor: Colors.green,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: startController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
-                hintText: 'Seleccione su ubicación',
-                filled: true,
-                fillColor: Colors.grey[200],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: (controller) => _mapController = controller,
+            initialCameraPosition: CameraPosition(
+              target: _currentLatLng ?? const LatLng(0, 0),
+              zoom: 14.0,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: destinationController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search, color: Colors.red),
-                hintText: 'Seleccione su destino',
-                filled: true,
-                fillColor: Colors.grey[200],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: GoogleMap(
-                  onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(
-                    target: _startLatLng ?? const LatLng(16.621537, -93.099800),
-                    zoom: 14.0,
-                  ),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  markers: {
-                    if (_startMarker != null) _startMarker!,
-                    if (_destinationMarker != null) _destinationMarker!,
-                  },
-                  polylines: {
-                    if (_routePolyline != null) _routePolyline!,
-                  },
-                  onTap: (LatLng latLng) {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) => Column(
-                        mainAxisSize: MainAxisSize.min,
+            myLocationEnabled: true,
+            markers: {
+              if (_startMarker != null) _startMarker!,
+              if (_destinationMarker != null) _destinationMarker!,
+            },
+            polylines: {
+              if (_routePolyline != null) _routePolyline!,
+              if (_routeToDestination != null) _routeToDestination!,
+            },
+          ),
+          if (_startLatLng != null && _destinationLatLng != null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Inicio: $_startLatLng\nDestino: $_destinationLatLng',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          ListTile(
-                            leading: const Icon(Icons.location_on),
-                            title: const Text('Establecer como ubicación inicial'),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _setMarkerAndAddress(latLng, startController, isStartLocation: true);
-                            },
+                          ElevatedButton(
+                            onPressed: _drawRouteToDestination,
+                            child: const Text('Iniciar recorrido'),
                           ),
-                          ListTile(
-                            leading: const Icon(Icons.location_on_outlined),
-                            title: const Text('Establecer como destino'),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _setMarkerAndAddress(latLng, destinationController, isStartLocation: false);
-                            },
+                          ElevatedButton(
+                            onPressed: _endTrip,
+                            child: const Text('Finalizar viaje'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
                           ),
                         ],
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
-        items: <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/IcoNavBar1.png'),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/IcoNavBar2.png'),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/IcoNavBar3.png'),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/IcoNavBar4.png'),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/IcoNavBar5.png'),
-            label: '',
-          ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.yellow,
-        unselectedItemColor: Colors.grey,
-        onTap: (int index) {
-          setState(() {
-            _selectedIndex = index;
-            if (index == 4) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            }
-          });
-        },
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
       ),
     );
   }

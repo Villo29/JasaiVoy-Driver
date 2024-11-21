@@ -11,7 +11,9 @@
 <key>NSMicrophoneUsageDescription</key>
 <string>Esta aplicación necesita acceso al micrófono para grabar audio.</string>
 <key>NSPhotoLibraryUsageDescription</key>
-<string>Esta aplicación necesita acceso a la galería de fotos para subir imágenes.</string>	
+<string>Esta aplicación necesita acceso a la galería de fotos para subir imágenes.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Se necesita acceso a tu ubicación para mostrar direcciones en tiempo real.</string>
 <key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

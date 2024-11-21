@@ -19,7 +19,8 @@ dependencies:
   socket_io_client: ^3.0.2
   flutter_launcher_icons: ^0.14.1
   permission_handler: ^11.3.1
-
+  geolocator: ^13.0.2
+  
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
@@ -31,7 +32,7 @@ dev_dependencies:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/logoJasaiVOY.png"
+  image_path: "assets/icons/logoJasaiVOYDriver.png"
 
 flutter:
   uses-material-design: true
