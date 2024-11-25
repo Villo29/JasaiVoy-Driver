@@ -34,13 +34,15 @@ class AuthModel extends ChangeNotifier {
       _isLoggedIn = true;
       notifyListeners();
     } else {
-      throw Exception('Error al iniciar sesión: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Error al iniciar sesión: ${response.statusCode} - ${response.body}');
     }
   }
 
   // Método para verificar el código y obtener los datos completos del usuario
   Future<void> verifyCode(String codigo, String correo) async {
-    var url = Uri.parse('http://35.175.159.211:3028/api/v1/chofer/validar-usuario');
+    var url =
+        Uri.parse('http://35.175.159.211:3028/api/v1/chofer/validar-usuario');
     var response = await http.post(
       url,
       headers: {
@@ -70,10 +72,59 @@ class AuthModel extends ChangeNotifier {
         _isVerified = true;
         notifyListeners();
       } else {
-        throw Exception('Datos de sesión inválidos: falta el token o los datos del usuario.');
+        throw Exception(
+            'Datos de sesión inválidos: falta el token o los datos del usuario.');
       }
     } else {
-      throw Exception('Error al verificar el código: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Error al verificar el código: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  // Nuevo método para actualizar el perfil del usuario
+  Future<void> updateUserProfile({
+    required String nombre,
+    required String correo,
+    required String telefono,
+  }) async {
+    if (_token.isEmpty || _userId.isEmpty) {
+      throw Exception('Error: Usuario no autenticado');
+    }
+
+    final url = Uri.parse('http://35.175.159.211:3028/api/v1/users/$_userId');
+    final updatedData = {
+      'nombre': nombre,
+      'correo': correo,
+      'telefono': telefono,
+    };
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(updatedData),
+      );
+
+      if (response.statusCode == 200) {
+        // Actualizar los datos locales del usuario
+        _currentUser = UserModel(
+          id: _currentUser?.id ?? '',
+          nombre: nombre,
+          correo: correo,
+          telefono: telefono,
+          matricula: _currentUser?.matricula ?? '',
+        );
+        notifyListeners(); // Notificar cambios a los widgets
+
+      } else {
+        throw Exception(
+            'Error al actualizar el perfil: ${response.statusCode} - ${response.body}');
+      }
+    } catch (error) {
+      throw Exception('Error al realizar la petición: $error');
     }
   }
 }

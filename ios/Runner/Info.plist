@@ -2,19 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Esta aplicación necesita acceder a tu ubicación mientras la usas para proporcionar servicios basados en ubicación.</string>
-<key>NSLocationAlwaysUsageDescription</key>
-<string>Esta aplicación necesita acceso constante a tu ubicación para mejorar la experiencia incluso cuando esté en segundo plano.</string>
-<key>NSCameraUsageDescription</key>
-<string>Esta aplicación necesita acceso a la cámara para capturar fotos y videos.</string>
-<key>NSMicrophoneUsageDescription</key>
-<string>Esta aplicación necesita acceso al micrófono para grabar audio.</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Esta aplicación necesita acceso a la galería de fotos para subir imágenes.</string>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>Se necesita acceso a tu ubicación para mostrar direcciones en tiempo real.</string>
-<key>CFBundleDevelopmentRegion</key>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Jasaivoychofer</string>
@@ -36,6 +26,20 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Esta aplicación necesita acceso a la cámara para capturar fotos y videos.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Se necesita acceso a tu ubicación para mostrar direcciones en tiempo real.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Esta aplicación necesita acceso constante a tu ubicación para mejorar la experiencia incluso cuando esté en segundo plano.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Esta aplicación necesita acceder a tu ubicación mientras la usas para proporcionar servicios basados en ubicación.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Esta aplicación necesita acceso al micrófono para grabar audio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Esta aplicación necesita acceso a la galería de fotos para subir imágenes.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -53,9 +57,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 </dict>
 </plist>

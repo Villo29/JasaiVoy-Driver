@@ -48,10 +48,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Polyline? _routePolyline;
   Polyline? _routeToDestination;
   StreamSubscription<geolocator.Position>? _positionStream;
-
+  DateTime tripStartTime = DateTime.now();
   late IO.Socket socket;
   bool isTripStarted = false;
-
+  String? _passengerId;
   final String apiKey = "AIzaSyABT2XqfABLKZHWlxg_IF412hYYOqZWYAk";
 
   @override
@@ -140,14 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     });
   }
+
   void _showRideRequestDialog(dynamic data) {
     if (data == null) return;
 
     setState(() {
       _startLatLng =
           LatLng(data['start']['latitude'], data['start']['longitude']);
-      _destinationLatLng =
-          LatLng(data['destination']['latitude'], data['destination']['longitude']);
+      _destinationLatLng = LatLng(
+          data['destination']['latitude'], data['destination']['longitude']);
       _startMarker = Marker(
         markerId: const MarkerId('start'),
         position: _startLatLng!,
@@ -167,9 +168,32 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Nueva solicitud de viaje'),
-          content: Text(
-            'Solicitud desde (${data['start']['latitude']}, ${data['start']['longitude']}) '
-            'hasta (${data['destination']['latitude']}, ${data['destination']['longitude']}).',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Nombre de Pasajero: ${data['passengerName']}\nNumero de Pasajero: ${data['phoneNumber']}',
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: GoogleMap(
+                  onMapCreated: (controller) => _mapController = controller,
+                  initialCameraPosition: CameraPosition(
+                    target: _startLatLng ?? const LatLng(0, 0),
+                    zoom: 12.0,
+                  ),
+                  markers: {
+                    if (_startMarker != null) _startMarker!,
+                    if (_destinationMarker != null) _destinationMarker!,
+                  },
+                  polylines: {
+                    if (_routePolyline != null) _routePolyline!,
+                  },
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -194,38 +218,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-void _acceptRideRequest(dynamic data) {
-  if (_currentLatLng == null) return;
+  void _acceptRideRequest(dynamic data) {
+    if (_currentLatLng == null) return;
 
-  final authModel = Provider.of<AuthModel>(context, listen: false);
-  final driverName = authModel.currentUser?.nombre ?? "Nombre desconocido";
-  final driverPhone = authModel.currentUser?.telefono ?? "Número desconocido";
+    final authModel = Provider.of<AuthModel>(context, listen: false);
+    final driverName = authModel.currentUser?.nombre ?? "Nombre desconocido";
+    final driverPhone = authModel.currentUser?.telefono ?? "Número desconocido";
+    final driverMatricula =
+        authModel.currentUser?.matricula ?? "Matrícula desconocida";
 
-  setState(() {
-    _startLatLng = LatLng(data['start']['latitude'], data['start']['longitude']);
-    _destinationLatLng =
-        LatLng(data['destination']['latitude'], data['destination']['longitude']);
-  });
+    setState(() {
+      _startLatLng =
+          LatLng(data['start']['latitude'], data['start']['longitude']);
+      _destinationLatLng = LatLng(
+          data['destination']['latitude'], data['destination']['longitude']);
+      _passengerId = data['passengerId']; // Guardar el passengerId
+      isTripStarted = true;
+    });
 
-  _drawRouteToStart();
+    _drawRouteToStart();
 
-  // Emitir al servidor que el viaje ha sido aceptado
-  socket.emit('acceptRide', {
-    'rideId': data['rideId'], // Asegúrate de enviar el rideId recibido
-    'passengerId': data['passengerId'], // Pasajero para notificar
-    'driverLocation': {
-      'latitude': _currentLatLng?.latitude,
-      'longitude': _currentLatLng?.longitude,
-    },
-    'driverInfo': {
-      'name': driverName,
-      'phone': driverPhone,
-    },
-  });
-}
+    // Emitir al servidor que el viaje ha sido aceptado
+    socket.emit('acceptRide', {
+      'rideId': data['rideId'],
+      'passengerId': data['passengerId'], // Pasajero para notificar
+      'driverLocation': {
+        'latitude': _currentLatLng?.latitude,
+        'longitude': _currentLatLng?.longitude,
+      },
+      'driverInfo': {
+        'name': driverName,
+        'phone': driverPhone,
+        'matricula': driverMatricula,
+      },
+    });
 
-
-
+    print("Viaje aceptado con passengerId: $_passengerId");
+  }
 
   Future<void> _drawRouteToStart() async {
     if (_currentLatLng == null || _startLatLng == null) return;
@@ -319,19 +348,53 @@ void _acceptRideRequest(dynamic data) {
 
     return points;
   }
-  void _endTrip() {
-    setState(() {
-      _routeToDestination = null;
-      _routePolyline = null;
-      _startLatLng = null;
-      _destinationLatLng = null;
-      _startMarker = null;
-      _destinationMarker = null;
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('El viaje ha finalizado.')),
-    );
+  void _endTrip() {
+    if (isTripStarted && _passengerId != null) {
+      final tripEndTime = DateTime.now();
+      final tripDuration = tripEndTime.difference(tripStartTime);
+
+      // Emitimos el mensaje al servidor
+      socket.emit('tripEnded', {
+        'message': 'Viaje finalizado',
+        'duration': tripDuration.inMinutes, // Duración en minutos
+        'passengerId': _passengerId, // Usamos el passengerId almacenado
+        'details': {
+          'start': {
+            'latitude': _startLatLng?.latitude,
+            'longitude': _startLatLng?.longitude,
+          },
+          'destination': {
+            'latitude': _destinationLatLng?.latitude,
+            'longitude': _destinationLatLng?.longitude,
+          },
+        },
+      });
+
+      print("Emitido tripEnded con passengerId: $_passengerId");
+
+      setState(() {
+        _routeToDestination = null;
+        _routePolyline = null;
+        _startLatLng = null;
+        _destinationLatLng = null;
+        _startMarker = null;
+        _destinationMarker = null;
+        isTripStarted = false;
+        _passengerId =
+            null; // Limpiamos el passengerId después de finalizar el viaje
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El viaje ha finalizado.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'No hay un viaje activo para finalizar o falta el passengerId.')),
+      );
+    }
   }
 
   @override
@@ -383,7 +446,11 @@ void _acceptRideRequest(dynamic data) {
                             child: const Text('Iniciar recorrido'),
                           ),
                           ElevatedButton(
-                            onPressed: _endTrip,
+                            onPressed: () {
+                              print(
+                                  "isTripStarted: $isTripStarted, _passengerId: $_passengerId");
+                              _endTrip();
+                            },
                             child: const Text('Finalizar viaje'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
@@ -401,4 +468,3 @@ void _acceptRideRequest(dynamic data) {
     );
   }
 }
-
