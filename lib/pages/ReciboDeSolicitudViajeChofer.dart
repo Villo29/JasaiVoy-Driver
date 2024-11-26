@@ -528,20 +528,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-class GraphScreen extends StatelessWidget {
-  const GraphScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Graficas'),
-        backgroundColor: Colors.green,
-      ),
-      body: const Center(
-        child: Text('Pantalla de Graficas'),
-      ),
-    );
-  }
-}
