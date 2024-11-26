@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jasaivoy_driver/pages/EditProfileScreen.dart';
+import 'package:jasaivoy_driver/pages/conductorapartado.dart';
 import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart';
 
 class RegisteredTripsScreen extends StatefulWidget {
@@ -130,7 +130,7 @@ class _RegisteredTripsScreenState extends State<RegisteredTripsScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const EditProfileScreen()),
+                  builder: (context) => const ProfileScreen()),
             );
           }
         },

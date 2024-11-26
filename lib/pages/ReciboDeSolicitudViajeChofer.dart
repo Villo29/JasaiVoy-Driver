@@ -8,7 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:provider/provider.dart';
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:http/http.dart' as http;
-import 'package:jasaivoy_driver/pages/EditProfileScreen.dart';
+import 'package:jasaivoy_driver/pages/conductorapartado.dart';
 import 'package:jasaivoy_driver/pages/Viajesregistradosconductor.dart';
 
 void main() {
@@ -425,6 +425,47 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_routeToDestination != null) _routeToDestination!,
             },
           ),
+          if (_startLatLng != null && _destinationLatLng != null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Inicio: $_startLatLng\nDestino: $_destinationLatLng',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: _drawRouteToDestination,
+                            child: const Text('Iniciar recorrido'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              print(
+                                  "isTripStarted: $isTripStarted, _passengerId: $_passengerId");
+                              _endTrip();
+                            },
+                            child: const Text('Finalizar viaje'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -477,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const EditProfileScreen()),
+                  builder: (context) => const ProfileScreen()),
             );
           }
         },
