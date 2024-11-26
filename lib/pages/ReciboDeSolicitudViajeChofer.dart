@@ -8,6 +8,8 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:provider/provider.dart';
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:http/http.dart' as http;
+import 'package:jasaivoy_driver/pages/EditProfileScreen.dart';
+import 'package:jasaivoy_driver/pages/Viajesregistradosconductor.dart';
 
 void main() {
   runApp(const MyApp());
@@ -38,6 +40,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
   late GoogleMapController _mapController;
   location_package.Location location = location_package.Location();
   LatLng? _currentLatLng;
@@ -422,48 +425,81 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_routeToDestination != null) _routeToDestination!,
             },
           ),
-          if (_startLatLng != null && _destinationLatLng != null)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.white,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Inicio: $_startLatLng\nDestino: $_destinationLatLng',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                            onPressed: _drawRouteToDestination,
-                            child: const Text('Iniciar recorrido'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              print(
-                                  "isTripStarted: $isTripStarted, _passengerId: $_passengerId");
-                              _endTrip();
-                            },
-                            child: const Text('Finalizar viaje'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+        items: <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar2.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar3.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar4.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar5.png'),
+            label: '',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.yellow,
+        unselectedItemColor: Colors.grey,
+        onTap: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Maneja la redirección con if
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const GraphScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const GraphScreen()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const RegisteredTripsScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen()),
+            );
+          }
+        },
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+      ),
+    );
+  }
+}
+
+class GraphScreen extends StatelessWidget {
+  const GraphScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Graficas'),
+        backgroundColor: Colors.green,
+      ),
+      body: const Center(
+        child: Text('Pantalla de Graficas'),
       ),
     );
   }

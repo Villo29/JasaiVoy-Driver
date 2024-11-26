@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:jasaivoy_driver/pages/EditProfileScreen.dart';
+import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart';
 
-class RegisteredTripsScreen extends StatelessWidget {
+class RegisteredTripsScreen extends StatefulWidget {
   const RegisteredTripsScreen({super.key});
+
+  @override
+  State<RegisteredTripsScreen> createState() => _RegisteredTripsScreenState();
+}
+
+class _RegisteredTripsScreenState extends State<RegisteredTripsScreen> {
+  int _selectedIndex = 2; // Índice inicial correspondiente a esta pantalla
 
   @override
   Widget build(BuildContext context) {
@@ -72,28 +81,61 @@ class RegisteredTripsScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+        items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home, color: Colors.black),
+            icon: Image.asset('assets/icons/IcoNavBar2.png'),
             label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.search, color: Colors.black),
+            icon: Image.asset('assets/icons/IcoNavBar3.png'),
             label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_repair_service, color: Colors.black),
+            icon: Image.asset('assets/icons/IcoNavBar4.png'),
             label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.black),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings, color: Colors.black),
+            icon: Image.asset('assets/icons/IcoNavBar5.png'),
             label: '',
           ),
         ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.yellow,
+        unselectedItemColor: Colors.grey,
+        onTap: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Manejar la redirección con if
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const GraphScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MyApp()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const RegisteredTripsScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen()),
+            );
+          }
+        },
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
       ),
     );
   }
@@ -200,6 +242,23 @@ class RegisteredTripsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class GraphScreen extends StatelessWidget {
+  const GraphScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Graficas'),
+        backgroundColor: Colors.green,
+      ),
+      body: const Center(
+        child: Text('Pantalla de Graficas'),
       ),
     );
   }

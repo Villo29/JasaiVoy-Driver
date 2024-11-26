@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:jasaivoy_driver/models/auth_model.dart';
+import 'package:jasaivoy_driver/pages/Viajesregistradosconductor.dart';
+import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -16,6 +18,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   bool _isLoading = false;
+  int _selectedIndex = 0; // Inicializar índice seleccionado
 
   @override
   void initState() {
@@ -103,12 +106,80 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+        items: <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar2.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar3.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar4.png'),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/IcoNavBar5.png'),
+            label: '',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.yellow,
+        unselectedItemColor: Colors.grey,
+        onTap: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Manejar la redirección con if
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const GraphScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MyApp()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const RegisteredTripsScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen()),
+            );
+          }
+        },
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+      ),
     );
   }
 }
 
+class GraphScreen extends StatelessWidget {
+  const GraphScreen({super.key});
 
-
-
-
- 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Graficas'),
+        backgroundColor: Colors.green,
+      ),
+      body: const Center(
+        child: Text('Pantalla de Graficas'),
+      ),
+    );
+  }
+}
