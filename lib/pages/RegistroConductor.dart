@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
-import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart'; // Importa la pantalla de destino.
+import 'ReciboDeSolicitudViajeChofer.dart';
 
 class PassengerRegistrationScreen extends StatefulWidget {
   const PassengerRegistrationScreen({super.key});
@@ -21,6 +24,8 @@ class _PassengerRegistrationScreenState
   final TextEditingController _matriculaController = TextEditingController();
 
   bool _isPasswordVisible = false;
+  File? _selectedImage;
+
 
   @override
   void dispose() {
@@ -31,6 +36,32 @@ class _PassengerRegistrationScreenState
     _curpController.dispose();
     _matriculaController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    await _requestStoragePermission();
+    if (await Permission.storage.isGranted) {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    }
+  }
+
+  Future<void> _requestStoragePermission() async {
+    final status = await Permission.storage.request();
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Por favor, otorga permisos de almacenamiento')),
+      );
+    } else if (status.isPermanentlyDenied) {
+      openAppSettings();
+    }
   }
 
   Future<void> _registerUser() async {
@@ -46,91 +77,69 @@ class _PassengerRegistrationScreenState
         contrasena.isNotEmpty &&
         telefono.isNotEmpty &&
         curp.isNotEmpty &&
-        matricula.isNotEmpty) {
-      if (contrasena.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('La contraseña debe tener al menos 6 caracteres')),
-        );
-        return;
-      }
-
-      if (telefono.length < 10) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('El número de teléfono debe tener al menos 10 dígitos')),
-        );
-        return;
-      }
-
-      // Mostrar el diálogo de carga
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        },
-      );
-
+        matricula.isNotEmpty &&
+        _selectedImage != null) {
       try {
-        final response = await http.post(
-          Uri.parse('http://35.175.159.211:3028/api/v1/chofer'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'nombre': nombre,
-            'correo': correo,
-            'contrasena': contrasena,
-            'telefono': telefono,
-            'curp': curp,
-            'matricula': matricula,
-          }),
+        final uri = Uri.parse('http://35.175.159.211:3028/api/v1/chofer');
+        final request = http.MultipartRequest('POST', uri);
+
+        // Campos de texto
+        request.fields['nombre'] = nombre;
+        request.fields['correo'] = correo;
+        request.fields['contrasena'] = contrasena;
+        request.fields['telefono'] = telefono;
+        request.fields['curp'] = curp;
+        request.fields['matricula'] = matricula;
+
+        // Archivo de imagen
+        request.files.add(
+          await http.MultipartFile.fromPath('imagenPath', _selectedImage!.path),
         );
 
+        // Mostrar el diálogo de carga
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          },
+        );
+
+        // Enviar la solicitud
+        final response = await request.send();
         Navigator.pop(context); // Cerrar el diálogo de carga
 
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
-
         if (response.statusCode == 200 || response.statusCode == 201) {
-          final data = json.decode(response.body);
+          final responseBody = await response.stream.bytesToString();
+          final data = json.decode(responseBody);
 
           if (data != null && data['token'] != null && data['id'] != null) {
             final String token = data['token'];
-
-            print('Token: $token');
-
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Registro exitoso')),
             );
 
-            // Redirigir a la siguiente vista con el token
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(token: token),
-                ),
-              );
-            }
+            // Redirigir a la pantalla principal
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(token: token),
+              ),
+            );
           } else {
-            print('Unexpected response format: $data');
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Error al procesar la respuesta')),
             );
           }
         } else {
-          print('Unexpected status code: ${response.statusCode}');
-          print('Response body: ${response.body}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${response.statusCode}')),
           );
         }
       } catch (e) {
         Navigator.pop(context); // Cerrar el diálogo de carga en caso de error
-        print('Exception caught: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error en la conexión: $e')),
         );
@@ -183,7 +192,24 @@ class _PassengerRegistrationScreenState
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Center(
+                  child: _selectedImage == null
+                      ? Column(
+                          children: [
+                            Icon(Icons.image, size: 100, color: Colors.grey),
+                            const Text('Seleccionar Imagen'),
+                          ],
+                        )
+                      : Image.file(
+                          _selectedImage!,
+                          height: 120,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
               TextField(
                 controller: _nombreController,
                 decoration: InputDecoration(
@@ -214,9 +240,7 @@ class _PassengerRegistrationScreenState
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {

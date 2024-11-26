@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -132,6 +133,53 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _updatePolyline() {
+    if (_currentLatLng == null || _routePolyline == null) return;
+
+    final remainingPoints = <LatLng>[];
+
+    for (var point in _routePolyline!.points) {
+      final distance = _calculateDistance(_currentLatLng!, point);
+      if (distance > 30) {
+        // Elimina puntos alcanzados si están dentro de 30 metros
+        remainingPoints.add(point);
+      }
+    }
+
+    setState(() {
+      if (remainingPoints.isNotEmpty) {
+        _routePolyline = Polyline(
+          polylineId: const PolylineId('route_to_start'),
+          points: remainingPoints,
+          color: Colors.blue,
+          width: 5,
+        );
+      } else {
+        _routePolyline =
+            null; // Si no hay puntos restantes, elimina la polilínea
+      }
+    });
+  }
+
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    const double radiusEarth = 6371e3; // Radio de la Tierra en metros
+    final double lat1 = point1.latitude * (math.pi / 180);
+    final double lat2 = point2.latitude * (math.pi / 180);
+    final double deltaLat =
+        (point2.latitude - point1.latitude) * (math.pi / 180);
+    final double deltaLon =
+        (point2.longitude - point1.longitude) * (math.pi / 180);
+
+    final double a = (math.sin(deltaLat / 2) * math.sin(deltaLat / 2)) +
+        (math.cos(lat1) *
+            math.cos(lat2) *
+            math.sin(deltaLon / 2) *
+            math.sin(deltaLon / 2));
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return radiusEarth * c;
+  }
+
   void _startLocationUpdates() {
     _positionStream = geolocator.Geolocator.getPositionStream(
       locationSettings: const geolocator.LocationSettings(
@@ -140,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ).listen((geolocator.Position position) {
       setState(() {
         _currentLatLng = LatLng(position.latitude, position.longitude);
+        _updatePolyline(); // Aquí actualizamos la polilínea cuando hay una nueva posición
       });
     });
   }
@@ -517,8 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (index == 3) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (context) => const ProfileScreen()),
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
             );
           }
         },
