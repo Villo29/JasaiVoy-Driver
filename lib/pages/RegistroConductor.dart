@@ -182,7 +182,7 @@ class _PassengerRegistrationScreenState
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Pasajero',
+                      'Chofer',
                       style: TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,

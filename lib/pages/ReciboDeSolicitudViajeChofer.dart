@@ -52,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Polyline? _routePolyline;
   Polyline? _routeToDestination;
   StreamSubscription<geolocator.Position>? _positionStream;
-  DateTime tripStartTime = DateTime.now();
   late IO.Socket socket;
   bool isTripStarted = false;
   String? _passengerId;
@@ -137,17 +136,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_currentLatLng == null || _routePolyline == null) return;
 
     final remainingPoints = <LatLng>[];
+    LatLng? lastValidPoint;
 
     for (var point in _routePolyline!.points) {
       final distance = _calculateDistance(_currentLatLng!, point);
-      if (distance > 30) {
-        // Mantén los puntos que están lejos del conductor
+
+      if (distance > 20) {
+        // Mantener puntos que están fuera del rango de 20 metros
         remainingPoints.add(point);
+        lastValidPoint = point;
       }
     }
 
     setState(() {
       if (remainingPoints.isNotEmpty) {
+        // Si quedan puntos, actualizamos la polilínea
         _routePolyline = Polyline(
           polylineId: const PolylineId('route_to_start'),
           points: remainingPoints,
@@ -155,9 +158,17 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 5,
         );
       } else {
-        _routePolyline = null; // Si no quedan puntos, elimina la polilínea
+        // Si no quedan puntos, eliminamos la polilínea
+        _routePolyline = null;
       }
     });
+
+    // Opcional: Mantener al conductor centrado en el mapa
+    if (_currentLatLng != null) {
+      _mapController.animateCamera(
+        CameraUpdate.newLatLng(_currentLatLng!),
+      );
+    }
   }
 
   double _calculateDistance(LatLng point1, LatLng point2) {
@@ -182,12 +193,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startLocationUpdates() {
     _positionStream = geolocator.Geolocator.getPositionStream(
       locationSettings: const geolocator.LocationSettings(
-        accuracy: geolocator.LocationAccuracy.high,
+        accuracy: geolocator.LocationAccuracy.bestForNavigation,
+        distanceFilter: 5,
       ),
     ).listen((geolocator.Position position) {
       setState(() {
         _currentLatLng = LatLng(position.latitude, position.longitude);
-        _updatePolyline(); // Aquí actualizamos la polilínea cuando hay una nueva posición
+        _updatePolyline(); // Aquí actualizamos la polilínea
       });
     });
   }
@@ -402,13 +414,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _endTrip() {
     if (isTripStarted && _passengerId != null) {
-      final tripEndTime = DateTime.now();
-      final tripDuration = tripEndTime.difference(tripStartTime);
+
 
       // Emitimos el mensaje al servidor
       socket.emit('tripEnded', {
-        'message': 'Viaje finalizado',
-        'duration': tripDuration.inMinutes, // Duración en minutos
+        'message':
+            'Viaje finalizado, gracias por usar Jasaivoy.\nRecuerda pagar al chofer.',
         'passengerId': _passengerId, // Usamos el passengerId almacenado
         'details': {
           'start': {
@@ -452,7 +463,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bienvenido, ${Provider.of<AuthModel>(context).currentUser?.nombre ?? ''}'),
+        title: Text(
+            'Bienvenido, ${Provider.of<AuthModel>(context).currentUser?.nombre ?? ''}'),
         backgroundColor: Colors.green,
       ),
       body: Stack(

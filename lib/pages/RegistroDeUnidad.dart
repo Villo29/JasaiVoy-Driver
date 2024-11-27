@@ -54,7 +54,6 @@ class _RegistroUnidadPageState extends State<RegistroUnidadPage> {
             Center(
               child: GestureDetector(
                 onTap: () {
-                  // Implementar la funcionalidad para seleccionar imagen
                 },
                 child: Container(
                   height: 120,
