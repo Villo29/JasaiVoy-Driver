@@ -1,11 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:jasaivoy_driver/pages/Viajesregistradosconductor.dart';
+import 'package:jasaivoy_driver/pages/EditProfileScreen.dart';
 import 'package:provider/provider.dart';
-
+import 'package:local_auth/local_auth.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _authenticate(BuildContext context) async {
+    final LocalAuthentication auth = LocalAuthentication();
+    bool isAuthenticated = false;
+
+    try {
+      isAuthenticated = await auth.authenticate(
+        localizedReason: 'Por favor autentícate para editar tu perfil',
+        options: const AuthenticationOptions(
+          biometricOnly: true, // Solo huella o FaceID
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error en la autenticación: $e')),
+      );
+      return;
+    }
+
+    if (isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Autenticación exitosa')),
+      );
+      // Ejecutar la acción que ya tienes en tu código original
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const EditProfileScreen(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Autenticación fallida')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +67,11 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundImage: AssetImage(
-                  'assets/perfilFoto.png'), // Cambia la imagen según sea necesario
-            ),
+            if (user?.foto != null)
+              CircleAvatar(
+                radius: 50,
+                backgroundImage: NetworkImage(user!.foto!),
+              ),
             const SizedBox(height: 20),
             const Text(
               'Bienvenido a Jasai',
@@ -46,9 +83,8 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 20),
             InfoRow(label: 'Nombre', value: user?.nombre ?? 'N/A'),
             InfoRow(label: 'Número de teléfono', value: user?.telefono ?? 'N/A'),
-            InfoRow(
-                label: 'Correo electrónico',
-                value: user?.correo ?? 'N/A'),
+            InfoRow(label: 'Correo electrónico', value: user?.correo ?? 'N/A'),
+            InfoRow(label: 'Matrícula', value: user?.matricula ?? 'N/A'),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
@@ -73,9 +109,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () {
-                // Acción para "Editar perfil"
-              },
+              onPressed: () => _authenticate(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.lightBlueAccent.withOpacity(0.3),
                 padding:

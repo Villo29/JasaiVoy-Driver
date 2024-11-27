@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     for (var point in _routePolyline!.points) {
       final distance = _calculateDistance(_currentLatLng!, point);
       if (distance > 30) {
-        // Elimina puntos alcanzados si están dentro de 30 metros
+        // Mantén los puntos que están lejos del conductor
         remainingPoints.add(point);
       }
     }
@@ -155,8 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 5,
         );
       } else {
-        _routePolyline =
-            null; // Si no hay puntos restantes, elimina la polilínea
+        _routePolyline = null; // Si no quedan puntos, elimina la polilínea
       }
     });
   }
@@ -453,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Inicio - Token: ${widget.token}'),
+        title: Text('Bienvenido, ${Provider.of<AuthModel>(context).currentUser?.nombre ?? ''}'),
         backgroundColor: Colors.green,
       ),
       body: Stack(

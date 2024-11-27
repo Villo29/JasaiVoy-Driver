@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:jasaivoy_driver/models/user_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthModel extends ChangeNotifier {
   bool _isLoggedIn = false;
@@ -15,6 +16,38 @@ class AuthModel extends ChangeNotifier {
   String get userId => _userId;
   bool get isLoggedIn => _isLoggedIn;
   bool get isVerified => _isVerified;
+
+  Future<void> saveSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('token', _token);
+    prefs.setString('userId', _userId);
+    if (_currentUser != null) {
+      prefs.setString('currentUser', jsonEncode(_currentUser!.toJson()));
+    }
+    prefs.setBool('isLoggedIn', _isLoggedIn);
+  }
+
+  Future<void> loadSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    _token = prefs.getString('token') ?? '';
+    _userId = prefs.getString('userId') ?? '';
+    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final currentUserData = prefs.getString('currentUser');
+    if (currentUserData != null) {
+      _currentUser = UserModel.fromJson(jsonDecode(currentUserData));
+    }
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Limpiar la sesión al cerrar
+    _isLoggedIn = false;
+    _token = '';
+    _userId = '';
+    _currentUser = null;
+    notifyListeners();
+  }
 
   // Método de login solo para verificar credenciales
   Future<void> login(String correo, String contrasena) async {
@@ -67,6 +100,7 @@ class AuthModel extends ChangeNotifier {
           correo: chofer['correo'],
           telefono: chofer['telefono'],
           matricula: chofer['matricula'],
+          foto: chofer['imagen_url'],
         );
 
         _isVerified = true;
@@ -86,16 +120,18 @@ class AuthModel extends ChangeNotifier {
     required String nombre,
     required String correo,
     required String telefono,
+    required String matricula,
   }) async {
     if (_token.isEmpty || _userId.isEmpty) {
       throw Exception('Error: Usuario no autenticado');
     }
 
-    final url = Uri.parse('http://35.175.159.211:3028/api/v1/users/$_userId');
+    final url = Uri.parse('http://35.175.159.211:3028/api/v1/chofer/$_userId');
     final updatedData = {
       'nombre': nombre,
       'correo': correo,
       'telefono': telefono,
+      'matricula': matricula,
     };
 
     try {
@@ -109,19 +145,60 @@ class AuthModel extends ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        // Actualizar los datos locales del usuario
+        final responseData = jsonDecode(response.body);
+
+        // Actualizar los datos locales del usuario (sin modificar la foto)
         _currentUser = UserModel(
           id: _currentUser?.id ?? '',
-          nombre: nombre,
-          correo: correo,
-          telefono: telefono,
-          matricula: _currentUser?.matricula ?? '',
+          nombre: responseData['nombre'] ?? 'Sin nombre',
+          correo: responseData['correo'] ?? 'Sin correo',
+          telefono: responseData['telefono'] ?? 'Sin teléfono',
+          matricula: responseData['matricula'] ?? 'Sin matrícula',
+          foto: _currentUser?.foto ?? '', // La foto permanece igual
         );
-        notifyListeners(); // Notificar cambios a los widgets
 
+        notifyListeners(); // Notificar cambios a los widgets dependientes
       } else {
         throw Exception(
             'Error al actualizar el perfil: ${response.statusCode} - ${response.body}');
+      }
+    } catch (error) {
+      throw Exception('Error al realizar la petición: $error');
+    }
+  }
+
+  Future<void> fetchUserDetails() async {
+    if (_token.isEmpty || _userId.isEmpty) {
+      throw Exception('Error: Usuario no autenticado');
+    }
+
+    final url = Uri.parse('http://35.175.159.211:3028/api/v1/chofer/$_userId');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        _currentUser = UserModel(
+          id: responseData['id'].toString(),
+          nombre: responseData['nombre'] ?? 'Sin nombre',
+          correo: responseData['correo'] ?? 'Sin correo',
+          telefono: responseData['telefono'] ?? 'Sin teléfono',
+          matricula: responseData['matricula'] ?? 'Sin matrícula',
+          foto: responseData['imagen_url'] ?? '',
+        );
+
+        notifyListeners(); // Notificar cambios a los widgets dependientes
+      } else {
+        throw Exception(
+            'Error al obtener los datos del usuario: ${response.statusCode} - ${response.body}');
       }
     } catch (error) {
       throw Exception('Error al realizar la petición: $error');

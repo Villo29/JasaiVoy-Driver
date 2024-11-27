@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:jasaivoy_driver/pages/login.dart';
+import 'package:jasaivoy_driver/pages/ReciboDeSolicitudViajeChofer.dart'; // Importa la pantalla principal
 import 'package:jasaivoy_driver/models/auth_model.dart';
 import 'package:provider/provider.dart';
 
-void main() {
-  runApp(const SplashApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Necesario para operaciones asíncronas antes de runApp
+  final authModel = AuthModel();
+  await authModel.loadSession(); // Cargar la sesión al iniciar
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => authModel,
+      child: const SplashApp(),
+    ),
+  );
 }
 
 class SplashApp extends StatelessWidget {
@@ -12,16 +22,13 @@ class SplashApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthModel(),
-      child: MaterialApp(
-        title: 'Jasai Voy',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        home: const SplashScreen(),
-        debugShowCheckedModeBanner: false,
+    return MaterialApp(
+      title: 'Jasai Voy',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
       ),
+      home: const SplashScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -37,16 +44,26 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _checkAuthentication(); // Verificar autenticación al iniciar
   }
 
-  void _navigateToLogin() {
-    Future.delayed(const Duration(seconds: 3), () {
+  void _checkAuthentication() async {
+    final authModel = Provider.of<AuthModel>(context, listen: false);
+    if (authModel.isLoggedIn) {
+      // Si el usuario está autenticado, redirigir a la pantalla principal
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(builder: (context) => HomeScreen(token: authModel.token)),
       );
-    });
+    } else {
+      // Si no está autenticado, ir a la pantalla de inicio de sesión
+      Future.delayed(const Duration(seconds: 3), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      });
+    }
   }
 
   @override

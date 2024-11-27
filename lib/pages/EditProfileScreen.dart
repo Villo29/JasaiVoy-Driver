@@ -17,8 +17,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
+  late TextEditingController _matriculaController;
   bool _isLoading = false;
-  int _selectedIndex = 0; // Inicializar índice seleccionado
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController(text: user?.nombre ?? '');
     _emailController = TextEditingController(text: user?.correo ?? '');
     _phoneController = TextEditingController(text: user?.telefono ?? '');
+    _matriculaController = TextEditingController(text: user?.matricula ?? '');
   }
 
   @override
@@ -37,22 +39,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _matriculaController.dispose();
     super.dispose();
   }
 
   Future<void> _saveProfile() async {
     final authModel = Provider.of<AuthModel>(context, listen: false);
 
-    setState(() {
-      _isLoading = true; // Mostrar indicador de carga
-    });
-
     try {
-      // Llamar al método del AuthModel para actualizar el perfil
       await authModel.updateUserProfile(
         nombre: _nameController.text,
         correo: _emailController.text,
         telefono: _phoneController.text,
+        matricula: _matriculaController.text,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -64,10 +63,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al actualizar el perfil: $error')),
       );
-    } finally {
-      setState(() {
-        _isLoading = false; // Ocultar indicador de carga
-      });
     }
   }
 
@@ -95,6 +90,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextField(
               controller: _phoneController,
               decoration: const InputDecoration(labelText: 'Teléfono'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _matriculaController,
+              decoration: const InputDecoration(labelText: 'Matricula'),
             ),
             const SizedBox(height: 20),
             _isLoading
