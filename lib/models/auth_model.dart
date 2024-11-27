@@ -204,4 +204,34 @@ class AuthModel extends ChangeNotifier {
       throw Exception('Error al realizar la petición: $error');
     }
   }
+
+  Future<List<dynamic>> fetchViajes() async {
+    if (_currentUser == null || _currentUser!.telefono.isEmpty) {
+      throw Exception('Error: Usuario no autenticado o teléfono no disponible');
+    }
+
+    final url = Uri.parse('http://backend.jasai.site:3028/api/v1/chofer/viajes');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'driverPhone': _currentUser!.telefono,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        throw Exception(
+            'Error al obtener los viajes: ${response.statusCode} - ${response.body}');
+      }
+    } catch (error) {
+      throw Exception('Error en la solicitud de viajes: $error');
+    }
+  }
 }

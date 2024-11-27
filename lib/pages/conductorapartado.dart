@@ -91,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const RegisteredTripsScreen()),
+                      builder: (context) => const ViajesRegistradosScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(

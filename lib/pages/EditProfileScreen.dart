@@ -150,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const RegisteredTripsScreen()),
+                  builder: (context) => const ViajesRegistradosScreen()),
             );
           } else if (index == 3) {
             Navigator.push(

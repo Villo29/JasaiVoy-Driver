@@ -572,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const RegisteredTripsScreen()),
+                  builder: (context) => const ViajesRegistradosScreen()),
             );
           } else if (index == 3) {
             Navigator.push(
@@ -583,6 +583,23 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         showSelectedLabels: false,
         showUnselectedLabels: false,
+      ),
+    );
+  }
+}
+
+class GraphScreen extends StatelessWidget {
+  const GraphScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Graficas'),
+        backgroundColor: Colors.green,
+      ),
+      body: const Center(
+        child: Text('Pantalla de Graficas'),
       ),
     );
   }
